@@ -32,12 +32,15 @@
         Voice
       </button>
       <span v-if="listening">Listening...</span>
+      <button class="u-button" @click="stopListening" v-if="listening">
+        Stop
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, stop } from 'vue'
 const scoreBlue = ref(0)
 const scoreRed = ref(0)
 
@@ -64,8 +67,22 @@ function startListening() {
     listening.value = false
     return
   }
+
+  const words = [
+    'team blue',
+    'team red',
+    'add blue',
+    'subtract blue',
+    'add red',
+    'subtract red'
+  ]
+  const SpeechGrammarList = (window as any).SpeechGrammarList || (window as any).webkitSpeechGrammarList
+  const grammar = new SpeechGrammarList()
+  grammar.addFromString('#JSGF V1.0; grammar commands; public <command> = ' + words.join(' | ') + ' ;', 1)
+
   const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
   recognition = new SpeechRecognition()
+  recognition.grammars = grammar
   recognition.lang = 'en-US'
   recognition.continuous = false
   recognition.interimResults = false
@@ -73,20 +90,31 @@ function startListening() {
     const transcript = event.results[0][0].transcript.toLowerCase()
     if (transcript.includes('team blue')) addPoint('Blue')
     else if (transcript.includes('team red')) addPoint('Red')
+    else if (transcript.includes('add blue')) addPoint('Blue')
+    else if (transcript.includes('subtract blue')) subtractPoint('Blue')
+    else if (transcript.includes('add red')) addPoint('Red')
+    else if (transcript.includes('subtract red')) subtractPoint('Red')
     // listening.value = false
   }
   recognition.onerror = (e: any) => {
-    listening.value = false
     console.error('Speech recognition error:', e);
   }
   recognition.onend = () => {
-    listening.value = false
     console.log('Speech recognition ended');
-    recognition.start()
-    listening.value = true
+    if (listening.value) {
+      recognition.start()
+    }
   }
   recognition.start()
   listening.value = true
+}
+
+function stopListening() {
+  if (recognition) {
+    listening.value = false
+    recognition.stop()
+    console.log('Speech recognition stopped');
+  }
 }
 </script>
 
@@ -127,6 +155,7 @@ function startListening() {
 }
 .controls {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   gap: 2rem;
 }
